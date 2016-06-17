@@ -26,6 +26,144 @@ Function.prototype.bindToEventHandler = function bindToEventHandler() {
     }
 };
 
+function parseXlsxTreeStructure(book) {
+    var sheet = book.Sheets[book.SheetNames[1]];
+    var rawList = parseInitialXlsxList(sheet);
+    var tree = createTreeStruct(rawList);
+    saveWorkbook(tree);
+}
+
+function parseInitialXlsxList(sheet) {
+    var dict = {};
+    var rowNum = 2;
+    while (sheet['A' + rowNum]) {
+        var a = sheet['A' + rowNum];
+        var b = sheet['B' + rowNum];
+        var d = sheet['D' + rowNum];
+
+        var id = a.w;
+        var name = b.w
+        var parent = d.w;
+
+        dict[id] = {id:id, name:name, parent:parent, children:{}}
+
+        rowNum++;
+    }
+
+    return dict;
+}
+
+function createTreeStruct(list) {
+    var tree = {};
+    for (l in list) {
+        addNodeToTree(tree, list[l], list);
+    }
+    return tree;
+}
+
+function addNodeToTree(tree, node, list) {
+    if (node.parent == "") {
+        tree[node.id] = node;
+        return;
+    }
+
+    // search root category
+    var path = [];
+    var n = node;
+    do {
+        path.splice(0, 0, n);
+        n = list[n.parent];
+    } while (n.parent != "");
+    path.splice(0, 0, n);
+
+    // for safety try to insert root
+    addNodeToTree(tree, n, list);
+
+    for (var i = 0, end = path.length - 1; i < end; i++) {
+        var parent = path[i];
+        var child = path[i + 1];
+
+        if (parent.children[child.id] === undefined) {
+            parent.children[child.id] = child;
+        }
+    }
+}
+
+function s2ab(s) {
+    var buf = new ArrayBuffer(s.length);
+    var view = new Uint8Array(buf);
+    for (var i=0; i!=s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+    return buf;
+}
+
+function Workbook() {
+    if(!(this instanceof Workbook)) return new Workbook();
+    this.SheetNames = [];
+    this.Sheets = {};
+}
+
+function sheetFromTree(tree) {
+    var ws = {};
+    var range = {s: {c:0, r:0}, e: {c:20, r:0 }};
+
+    ws[XLSX.utils.encode_cell({c:0, r:0})] = makeCell("Category");
+
+    var row = 1;
+    for(var R in tree) {
+        // Category
+        var n = tree[R];
+
+        ws[XLSX.utils.encode_cell({c:0, r:row})] = makeCell(n.name);
+
+        for (var sub in n.children) {
+            row += extractSubcategory(ws, 1, row, n.children[sub]);
+        }
+        row++;
+    }
+    range.e.r = row + 1;
+
+    ws['!ref'] = XLSX.utils.encode_range(range);
+
+    return ws;
+}
+
+function makeCell(val) {
+    var cell = {v: val };
+
+    if(typeof cell.v === 'number') cell.t = 'n';
+    else if(typeof cell.v === 'boolean') cell.t = 'b';
+    else if(cell.v instanceof Date) {
+        cell.t = 'n'; cell.z = XLSX.SSF._table[14];
+    }
+    else cell.t = 's';
+
+    return cell;
+}
+
+function extractSubcategory(ws, col, row, node) {
+    ws[XLSX.utils.encode_cell({c:col, r:0})] = makeCell("Sub-category");
+    var r = row
+    ws[XLSX.utils.encode_cell({c:col, r:row})] = makeCell(node.name);
+
+    for (var sub in node.children) {
+        row += extractSubcategory(ws, col + 1, row, node.children[sub]);
+        row++;
+    }
+
+    return row - r;
+}
+
+function saveWorkbook(tree) {
+    var wb = new Workbook();
+    var ws = sheetFromTree(tree);
+    /* add worksheet to workbook */
+    wb.SheetNames.push("SEO Site structure");
+    wb.Sheets["SEO Site structure"] = ws;
+    var wbout = XLSX.write(wb, {bookType:'xlsx', bookSST:true, type: 'binary'});
+
+    saveAs(new Blob([s2ab(wbout)],{type:"application/octet-stream"}), "output.xlsx");
+}
+
 (function (){
     if(window.FileReader) {
         addEventHandler(window, 'load', function() {
@@ -59,9 +197,13 @@ Function.prototype.bindToEventHandler = function bindToEventHandler() {
                         status.innerHTML = fileNumber < files.length
                             ? 'Loaded 100% of file '+fileNumber+' of '+files.length+'...'
                             : 'Done loading. processed '+fileNumber+' files.';
+
+
+                        var workbook = XLSX.read(e.target.result, {type: 'binary'});
+                        parseXlsxTreeStructure(workbook);
                     }.bindToEventHandler(file));
 
-                    reader.readAsDataURL(file);
+                    reader.readAsBinaryString(file);
                 }
                 return false;
             });

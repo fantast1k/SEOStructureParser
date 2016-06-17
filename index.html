@@ -3,22 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <title>SEO Site tree parser/generator</title>
-    <script type="text/javascript" src="script/parser.js"></script>
     <style>
-        #drop {
-            min-height: 150px;
-            width: 250px;
-            border: 1px solid blue;
-            margin: 10px;
-            padding: 10px;
+        #drop{
+            border:2px dashed #bbb;
+            -moz-border-radius:5px;
+            -webkit-border-radius:5px;
+            border-radius:5px;
+            padding:25px;
+            text-align:center;
+            font:20pt bold,"Vollkorn";color:#bbb
         }
     </style>
 </head>
 <body>
     <h1 align=center>A SEO tree structure parser</h1>
-    <DIV id="status">Drag the exported xlsx file to a selected area ...</DIV>
+    <DIV id="status">Drop the exported xlsx file to a selected area ...</DIV>
 
-    <DIV id="drop">Drop file here.</DIV>
+    <div id="drop">Drop an XLSX / XLSM / XLSB / ODS / XLS / XML file here to see sheet data</div>
     <DIV id="list"></DIV>
 </body>
+    <script type="text/javascript" src="script/3dparty/xlsx.full.min.js"></script>
+    <script type="text/javascript" src="script/3dparty/Blob.js"></script>
+    <script type="text/javascript" src="script/3dparty/FileSaver.js"></script>
+    <script type="text/javascript" src="script/parser.js"></script>
 </html>
